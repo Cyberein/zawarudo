@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StudyList – Student Task Manager</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📝%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <!-- ===== HTML (Member 2): the structure of the page ===== -->
+  <h1>StudyList</h1>
+  <p class="sub">A simple task manager for students. Add your tasks, check them off, never miss a deadline.</p>
+
+  <section class="panel">
+    <form id="taskForm" novalidate>
+      <div class="row">
+        <input type="text" id="taskInput" placeholder="What do you need to do?" aria-label="Task name" maxlength="80" autocomplete="off">
+      </div>
+      <div class="row">
+        <select id="priority" aria-label="Priority">
+          <option>High</option><option selected>Medium</option><option>Low</option>
+        </select>
+        <button type="submit">Add task</button>
+      </div>
+      <p class="error" id="error" role="alert"></p>
+    </form>
+  </section>
+
+  <div class="bar">
+    <div class="filters" id="filters">
+      <button type="button" data-filter="all" class="active">All</button>
+      <button type="button" data-filter="active">Active</button>
+      <button type="button" data-filter="done">Done</button>
+    </div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <ul id="list"></ul>
+  <p style="text-align:right;margin:10px 0 0"><button type="button" class="clear" id="clearDone">Clear completed</button></p>
+</main>
+
+<script>
+/* ===== JavaScript (Member 3): the interactive features ===== */
+
+// Variables: the list of tasks and the current filter
+let tasks = [];
+let filter = "all";
+
+const form = document.getElementById("taskForm");
+const input = document.getElementById("taskInput");
+const priority = document.getElementById("priority");
+const errorBox = document.getElementById("error");
+const list = document.getElementById("list");
+const count = document.getElementById("count");
+
+// FEATURE 3: Save and load using browser storage (no database needed)
+function save() {
+  try { localStorage.setItem("studylist-tasks", JSON.stringify(tasks)); } catch (e) { /* storage unavailable */ }
+}
+function load() {
+  try {
+    const data = localStorage.getItem("studylist-tasks");
+    tasks = data ? JSON.parse(data) : [];
+  } catch (e) { tasks = []; }
+}
+
+// FEATURE 1: Add a task, with input validation
+form.addEventListener("submit", function (event) {
+  event.preventDefault();
+  const text = input.value.trim();
+
+  if (text === "") { errorBox.textContent = "Please type a task first."; return; }
+  if (text.length < 3) { errorBox.textContent = "The task must be at least 3 characters."; return; }
+  const duplicate = tasks.some(t => t.text.toLowerCase() === text.toLowerCase());
+  if (duplicate) { errorBox.textContent = "That task is already on your list."; return; }
+
+  errorBox.textContent = "";
+  tasks.push({ id: Date.now(), text: text, priority: priority.value, done: false });
+  input.value = "";
+  save();
+  render();
+});
+
+// FEATURE 2: Mark done / delete (one listener handles every task)
+list.addEventListener("click", function (event) {
+  const item = event.target.closest("li");
+  if (!item) return;
+  const id = Number(item.dataset.id);
+  if (event.target.classList.contains("del")) {
+    tasks = tasks.filter(t => t.id !== id);
+  } else if (event.target.type === "checkbox") {
+    const task = tasks.find(t => t.id === id);
+    task.done = event.target.checked;
+  } else { return; }
+  save();
+  render();
+});
+
+// FEATURE 4: Filter All / Active / Done
+document.getElementById("filters").addEventListener("click", function (event) {
+  if (!event.target.dataset.filter) return;
+  filter = event.target.dataset.filter;
+  document.querySelectorAll("#filters button").forEach(b => b.classList.toggle("active", b === event.target));
+  render();
+});
+
+// FEATURE 5: Clear all completed tasks
+document.getElementById("clearDone").addEventListener("click", function () {
+  tasks = tasks.filter(t => !t.done);
+  save();
+  render();
+});
+
+// Draw the list on the screen
+function render() {
+  list.innerHTML = "";
+  const shown = tasks.filter(t => filter === "all" || (filter === "done" ? t.done : !t.done));
+
+  if (shown.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = tasks.length === 0 ? "No tasks yet. Add your first one above." : "Nothing in this view.";
+    list.appendChild(empty);
+  }
+
+  shown.forEach(function (t) {
+    const li = document.createElement("li");
+    li.dataset.id = t.id;
+    li.className = t.priority + (t.done ? " done" : "");
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = t.done;
+    box.setAttribute("aria-label", "Mark done: " + t.text);
+
+    const txt = document.createElement("span");
+    txt.className = "txt";
+    txt.textContent = t.text;
+
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = t.priority;
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "del";
+    del.textContent = "Delete";
+
+    li.append(box, txt, tag, del);
+    list.appendChild(li);
+  });
+
+  const left = tasks.filter(t => !t.done).length;
+  count.textContent = left + " of " + tasks.length + " left";
+}
+
+load();
+render();
+</script>
+</body>
+</html>
+
